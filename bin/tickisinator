@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+#
+# Tickisinator wrapper script
+#
+# This script loads environment variables from .env if they're not already set,
+# then executes the actual tickisinator binary.
+#
+# This allows the binary to work when symlinked from other projects without
+# requiring environment variables to be set globally.
+
+set -e
+
+# Find the directory where this script lives (resolving symlinks)
+SCRIPT_SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SCRIPT_SOURCE" ]; do
+  SCRIPT_DIR="$(cd -P "$(dirname "$SCRIPT_SOURCE")" && pwd)"
+  SCRIPT_SOURCE="$(readlink "$SCRIPT_SOURCE")"
+  [[ $SCRIPT_SOURCE != /* ]] && SCRIPT_SOURCE="$SCRIPT_DIR/$SCRIPT_SOURCE"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$SCRIPT_SOURCE")" && pwd)"
+
+# Load .env if it exists and FMP_API_KEY isn't already set
+if [ -z "$FMP_API_KEY" ] && [ -f "$SCRIPT_DIR/.env" ]; then
+  # Source the .env file, exporting all non-comment lines
+  set -a
+  source "$SCRIPT_DIR/.env"
+  set +a
+fi
+
+# Execute the actual binary, passing through all arguments
+exec "$SCRIPT_DIR/tickisinator.bin" "$@"

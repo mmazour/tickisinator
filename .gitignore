@@ -30,4 +30,8 @@ coverage/
 *.log
 
 # Compiled binaries
-bin/
+bin/tickisinator.bin
+
+# Environment files (contain secrets)
+bin/.env
+.env

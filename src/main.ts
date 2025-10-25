@@ -315,7 +315,7 @@ Exit Codes:
 
   // Show version
   if (args.version) {
-    console.log("tickisinator v0.1.0");
+    console.log("tickisinator v0.2.0");
     Deno.exit(0);
   }
 

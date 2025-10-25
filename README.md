@@ -10,13 +10,20 @@ Convert between investment identifiers (ticker symbols, ISIN, CUSIP) for US secu
 
 ```bash
 # Clone and build
-git clone <repo-url>
+git clone https://github.com/mmazour/tickisinator.git
 cd tickisinator
 deno task build
 
-# Add bin/ to your PATH, or:
+# Configure API key (required)
+cp bin/.env.example bin/.env
+# Edit bin/.env and add your FMP API key
+
+# Add to PATH, or use via symlink
 export PATH="$PATH:$(pwd)/bin"
+# OR: ln -s $(pwd)/bin/tickisinator ~/your-project/bin/tickisinator
 ```
+
+**How it works:** The `bin/tickisinator` wrapper script automatically loads environment variables from `bin/.env` if they're not already set. This means it works correctly even when symlinked from other projects!
 
 ### Basic Usage
 
@@ -158,13 +165,30 @@ cat queries.txt | tickisinator
 
 ### API Key Setup
 
-Create `~/.config/tickisinator/.env`:
-
+**Option 1: Local .env file (Recommended)**
 ```bash
-FMP_API_KEY=your_api_key_here
+# Copy the example and edit
+cp bin/.env.example bin/.env
+# Edit bin/.env and add your API key
+```
+
+**Option 2: Environment variable**
+```bash
+export FMP_API_KEY=your_api_key_here
+```
+
+**Option 3: Global config (future enhancement)**
+```bash
+mkdir -p ~/.config/tickisinator
+echo "FMP_API_KEY=your_key" > ~/.config/tickisinator/.env
 ```
 
 Get a free API key at https://site.financialmodelingprep.com
+
+**Note:** The wrapper script (`bin/tickisinator`) checks for the API key in this priority order:
+1. Already set in environment
+2. Local `bin/.env` file
+3. Returns error if not found
 
 ## Exit Codes
 
@@ -393,5 +417,5 @@ CREATE TABLE identifiers_isin (
 
 ---
 
-**Version:** 0.1.0 (Phase 0)
+**Version:** 0.2.0 (Phase 0)
 **Last Updated:** 2025-10-25
