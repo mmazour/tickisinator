@@ -433,3 +433,70 @@ Deno.test("isPricingStale - returns false for pricing just under 24 hours", () =
   const result = isPricingStale(pricing);
   assertEquals(result, false);
 });
+
+Deno.test("ISIN lookup with stale pricing - can refresh using cached ticker", () => {
+  // This test documents the expected behavior for this scenario:
+  // Day 1: User requests ticker->ISIN lookup (caches reverse lookup and price)
+  // Day 2: User requests reverse ISIN->ticker lookup (satisfied from cache)
+  // Day 3: User requests ISIN->ticker lookup with -p flag (needs fresh price)
+  //
+  // Expected: We should be able to refresh the price by using the ticker from cache
+
+  const db = initDatabase(TEST_DB_PATH);
+
+  // Day 1: Ticker lookup with pricing
+  const security: SecurityData = {
+    name: "Apple Inc.",
+    ticker: "AAPL",
+    exchange: "NASDAQ",
+    isin: "US0378331005",
+    cusip: "037833100",
+    source: "fmp",
+  };
+
+  const securityId = insertSecurity(db, security);
+
+  const oldPricing: PricingData = {
+    price: 250.00,
+    market_cap: 3800000000000,
+    price_fetched_at: Math.floor(Date.now() / 1000) - (25 * 60 * 60), // 25 hours ago (stale)
+  };
+
+  insertPricing(db, securityId, oldPricing);
+
+  // Day 2/3: ISIN lookup (returns cached security)
+  const result = lookupByIsin(db, "US0378331005");
+
+  // Verify we found the security
+  assertExists(result);
+  assertEquals(result!.isin, "US0378331005");
+  assertEquals(result!.ticker, "AAPL"); // KEY: We have the ticker!
+
+  // Day 3: Check if pricing is stale
+  const pricing = getPricing(db, result!.id);
+  assertExists(pricing);
+  assertEquals(isPricingStale(pricing), true); // Pricing is stale
+
+  // Verify we have everything needed to refresh:
+  // 1. We have the ticker from the cached security
+  assertEquals(result!.ticker, "AAPL");
+  // 2. We can detect pricing is stale
+  assertEquals(isPricingStale(pricing), true);
+  // 3. main.ts can now call fetchTickerProfile(result.ticker, apiKey) to refresh
+
+  // Simulate refreshing with new pricing
+  const freshPricing: PricingData = {
+    price: 262.82,
+    market_cap: 3900000000000,
+    price_fetched_at: Math.floor(Date.now() / 1000), // Fresh
+  };
+
+  insertPricing(db, result!.id, freshPricing);
+
+  // Verify refresh worked
+  const refreshedPricing = getPricing(db, result!.id);
+  assertEquals(refreshedPricing!.price, 262.82);
+  assertEquals(isPricingStale(refreshedPricing), false);
+
+  db.close();
+});
