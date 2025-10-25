@@ -28,6 +28,21 @@ export interface SecurityData {
 export interface SecurityResult extends SecurityData {
   id: number;
   fetched_at?: number;
+  pricing?: PricingData;
+}
+
+export interface PricingData {
+  price?: number;
+  change?: number;
+  change_percentage?: number;
+  market_cap?: number;
+  volume?: number;
+  average_volume?: number;
+  beta?: number;
+  last_dividend?: number;
+  range?: string;
+  is_actively_trading?: boolean;
+  price_fetched_at: number;
 }
 
 /**
@@ -104,11 +119,31 @@ export function initDatabase(dbPath: string): Database {
     )
   `);
 
+  // Pricing data (separate table since prices change frequently)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pricing (
+      security_id INTEGER PRIMARY KEY,
+      price REAL,
+      change REAL,
+      change_percentage REAL,
+      market_cap REAL,
+      volume REAL,
+      average_volume REAL,
+      beta REAL,
+      last_dividend REAL,
+      range TEXT,
+      is_actively_trading INTEGER DEFAULT 1,
+      price_fetched_at INTEGER NOT NULL,
+      FOREIGN KEY (security_id) REFERENCES securities(id) ON DELETE CASCADE
+    )
+  `);
+
   // Create indexes for faster lookups
   db.exec(`CREATE INDEX IF NOT EXISTS idx_ticker ON identifiers_ticker(ticker, exchange)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_isin ON identifiers_isin(isin)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_cusip ON identifiers_cusip(cusip)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_cik ON identifiers_cik(cik)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_pricing_security ON pricing(security_id)`);
 
   return db;
 }
@@ -410,4 +445,99 @@ export function lookupByCusip(db: Database, cusip: string): SecurityResult | nul
     source: "db",
     fetched_at: result.fetched_at,
   };
+}
+
+/**
+ * Insert or update pricing data for a security
+ *
+ * @param db - Database instance
+ * @param securityId - Security ID
+ * @param pricing - Pricing data
+ */
+export function insertPricing(db: Database, securityId: number, pricing: PricingData): void {
+  db.prepare(`
+    INSERT INTO pricing (
+      security_id, price, change, change_percentage, market_cap, volume,
+      average_volume, beta, last_dividend, range, is_actively_trading, price_fetched_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(security_id) DO UPDATE SET
+      price = excluded.price,
+      change = excluded.change,
+      change_percentage = excluded.change_percentage,
+      market_cap = excluded.market_cap,
+      volume = excluded.volume,
+      average_volume = excluded.average_volume,
+      beta = excluded.beta,
+      last_dividend = excluded.last_dividend,
+      range = excluded.range,
+      is_actively_trading = excluded.is_actively_trading,
+      price_fetched_at = excluded.price_fetched_at
+  `).run(
+    securityId,
+    pricing.price ?? null,
+    pricing.change ?? null,
+    pricing.change_percentage ?? null,
+    pricing.market_cap ?? null,
+    pricing.volume ?? null,
+    pricing.average_volume ?? null,
+    pricing.beta ?? null,
+    pricing.last_dividend ?? null,
+    pricing.range ?? null,
+    pricing.is_actively_trading ? 1 : 0,
+    pricing.price_fetched_at
+  );
+}
+
+/**
+ * Get pricing data for a security
+ *
+ * @param db - Database instance
+ * @param securityId - Security ID
+ * @returns PricingData or null if not found
+ */
+export function getPricing(db: Database, securityId: number): PricingData | null {
+  const result = db.prepare(`
+    SELECT
+      price, change, change_percentage, market_cap, volume, average_volume,
+      beta, last_dividend, range, is_actively_trading, price_fetched_at
+    FROM pricing
+    WHERE security_id = ?
+  `).get(securityId) as any;
+
+  if (!result) {
+    return null;
+  }
+
+  return {
+    price: result.price,
+    change: result.change,
+    change_percentage: result.change_percentage,
+    market_cap: result.market_cap,
+    volume: result.volume,
+    average_volume: result.average_volume,
+    beta: result.beta,
+    last_dividend: result.last_dividend,
+    range: result.range,
+    is_actively_trading: result.is_actively_trading === 1,
+    price_fetched_at: result.price_fetched_at,
+  };
+}
+
+/**
+ * Check if pricing data is stale (>24 hours old)
+ *
+ * @param pricing - Pricing data
+ * @returns true if stale, false otherwise
+ */
+export function isPricingStale(pricing: PricingData | null): boolean {
+  if (!pricing) {
+    return true;
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const age = now - pricing.price_fetched_at;
+  const TWENTY_FOUR_HOURS = 24 * 60 * 60;
+
+  return age > TWENTY_FOUR_HOURS;
 }

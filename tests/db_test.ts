@@ -6,7 +6,11 @@ import {
   lookupByTicker,
   lookupByIsin,
   lookupByCusip,
+  insertPricing,
+  getPricing,
+  isPricingStale,
   type SecurityData,
+  type PricingData,
 } from "../src/db.ts";
 
 // Use in-memory database for tests
@@ -285,4 +289,147 @@ Deno.test("insertSecurity - tracks timestamps", () => {
   assertEquals(timestamp <= afterInsert, true);
 
   db.close();
+});
+
+Deno.test("initDatabase - creates pricing table", () => {
+  const db = initDatabase(TEST_DB_PATH);
+
+  const tables = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+  ).all();
+
+  const tableNames = tables.map((t: any) => t.name);
+  assertEquals(tableNames.includes("pricing"), true);
+
+  db.close();
+});
+
+Deno.test("insertPricing - stores complete pricing data", () => {
+  const db = initDatabase(TEST_DB_PATH);
+
+  // First create a security
+  const security: SecurityData = {
+    name: "Apple Inc.",
+    ticker: "AAPL",
+    exchange: "NASDAQ",
+    isin: "US0378331005",
+    source: "fmp",
+  };
+
+  const securityId = insertSecurity(db, security);
+
+  // Then add pricing data
+  const pricing: PricingData = {
+    price: 262.82,
+    change: 5.23,
+    change_percentage: 2.03,
+    market_cap: 3900351299800,
+    volume: 45678900,
+    average_volume: 52345678,
+    beta: 1.25,
+    last_dividend: 0.96,
+    range: "245.32-278.45",
+    is_actively_trading: true,
+    price_fetched_at: Math.floor(Date.now() / 1000),
+  };
+
+  insertPricing(db, securityId, pricing);
+
+  // Verify it was stored
+  const retrieved = getPricing(db, securityId);
+  assertExists(retrieved);
+  assertEquals(retrieved!.price, 262.82);
+  assertEquals(retrieved!.change, 5.23);
+  assertEquals(retrieved!.market_cap, 3900351299800);
+  assertEquals(retrieved!.is_actively_trading, true);
+
+  db.close();
+});
+
+Deno.test("insertPricing - updates existing pricing", () => {
+  const db = initDatabase(TEST_DB_PATH);
+
+  const security: SecurityData = {
+    name: "Apple Inc.",
+    ticker: "AAPL",
+    exchange: "NASDAQ",
+    source: "fmp",
+  };
+
+  const securityId = insertSecurity(db, security);
+
+  // Insert initial pricing
+  const pricing1: PricingData = {
+    price: 260.00,
+    price_fetched_at: Math.floor(Date.now() / 1000) - 1000,
+  };
+
+  insertPricing(db, securityId, pricing1);
+
+  // Update with new pricing
+  const pricing2: PricingData = {
+    price: 262.82,
+    change: 2.82,
+    price_fetched_at: Math.floor(Date.now() / 1000),
+  };
+
+  insertPricing(db, securityId, pricing2);
+
+  // Should only have one pricing record
+  const count = db.prepare(
+    "SELECT COUNT(*) as count FROM pricing WHERE security_id = ?"
+  ).get(securityId) as { count: number };
+
+  assertEquals(count.count, 1);
+
+  // Should have updated price
+  const retrieved = getPricing(db, securityId);
+  assertEquals(retrieved!.price, 262.82);
+  assertEquals(retrieved!.change, 2.82);
+
+  db.close();
+});
+
+Deno.test("getPricing - returns null when not found", () => {
+  const db = initDatabase(TEST_DB_PATH);
+
+  const result = getPricing(db, 99999);
+  assertEquals(result, null);
+
+  db.close();
+});
+
+Deno.test("isPricingStale - returns true when no pricing", () => {
+  const result = isPricingStale(null);
+  assertEquals(result, true);
+});
+
+Deno.test("isPricingStale - returns false for fresh pricing", () => {
+  const pricing: PricingData = {
+    price: 262.82,
+    price_fetched_at: Math.floor(Date.now() / 1000), // Current time
+  };
+
+  const result = isPricingStale(pricing);
+  assertEquals(result, false);
+});
+
+Deno.test("isPricingStale - returns true for old pricing", () => {
+  const pricing: PricingData = {
+    price: 262.82,
+    price_fetched_at: Math.floor(Date.now() / 1000) - (25 * 60 * 60), // 25 hours ago
+  };
+
+  const result = isPricingStale(pricing);
+  assertEquals(result, true);
+});
+
+Deno.test("isPricingStale - returns false for pricing just under 24 hours", () => {
+  const pricing: PricingData = {
+    price: 262.82,
+    price_fetched_at: Math.floor(Date.now() / 1000) - (23 * 60 * 60), // 23 hours ago
+  };
+
+  const result = isPricingStale(pricing);
+  assertEquals(result, false);
 });

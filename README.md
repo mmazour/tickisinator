@@ -31,11 +31,17 @@ export PATH="$PATH:$(pwd)/bin"
 # Lookup by ticker (returns ISIN, CUSIP, and more)
 tickisinator ticker:AAPL
 
+# Include pricing data (market price, market cap, volume, etc.)
+tickisinator --price ticker:AAPL
+
 # Lookup by ISIN (returns ticker if cached)
 tickisinator isin:US0378331005
 
 # Batch lookups
 tickisinator ticker:AAPL ticker:MSFT ticker:TSLA
+
+# Batch lookups with pricing
+tickisinator --price ticker:AAPL ticker:MSFT ticker:TSLA
 
 # Interactive mode (read from stdin)
 echo "ticker:AAPL" | tickisinator
@@ -47,18 +53,23 @@ cat tickers.txt | tickisinator
 All output is JSONL (JSON Lines) - one JSON object per line:
 
 ```json
-{"query":"ticker:AAPL","ticker":"AAPL","isin":"US0378331005","cusip":"037833100","name":"Apple Inc.","exchange":"NASDAQ","source":"fmp"}
-{"query":"ticker:MSFT","ticker":"MSFT","isin":"US5949181045","cusip":"594918104","name":"Microsoft Corporation","exchange":"NASDAQ","source":"fmp"}
+{"input":"ticker:AAPL","ticker":"AAPL","isin":"US0378331005","cusip":"037833100","cik":"0000320193","name":"Apple Inc.","exchange":"NASDAQ","source":"fmp"}
+{"input":"ticker:MSFT","ticker":"MSFT","isin":"US5949181045","cusip":"594918104","cik":"0000789019","name":"Microsoft Corporation","exchange":"NASDAQ","source":"fmp"}
+```
+
+With pricing data (`--price` flag):
+```json
+{"input":"ticker:AAPL","ticker":"AAPL","isin":"US0378331005","cusip":"037833100","cik":"0000320193","name":"Apple Inc.","exchange":"NASDAQ","source":"fmp","price":262.82,"change":5.23,"change_percentage":2.03,"market_cap":3900351299800,"volume":45678900,"average_volume":52345678,"beta":1.25,"last_dividend":0.96,"range":"245.32-278.45","is_actively_trading":true,"price_fetched_at":1730000000}
 ```
 
 For cached lookups:
 ```json
-{"query":"isin:US0378331005","ticker":"AAPL","isin":"US0378331005","cusip":"037833100","name":"Apple Inc.","exchange":"NASDAQ","source":"db"}
+{"input":"isin:US0378331005","ticker":"AAPL","isin":"US0378331005","cusip":"037833100","cik":"0000320193","name":"Apple Inc.","exchange":"NASDAQ","source":"db"}
 ```
 
 When ISIN not in cache:
 ```json
-{"query":"isin:GB0002374006","error":"ISIN not in cache","suggestion":"Try ticker lookup first"}
+{"input":"isin:GB0002374006","isin":"GB0002374006","source":"db","error":"Reverse lookup (ISIN → ticker) only works for cached entries. Please look up the ticker first to populate the cache."}
 ```
 
 ## Usage from Other Applications
@@ -68,6 +79,12 @@ When ISIN not in cache:
 ```bash
 # Get ISIN for ticker
 ISIN=$(tickisinator ticker:AAPL | jq -r '.isin')
+
+# Get current price
+PRICE=$(tickisinator --price ticker:AAPL | jq -r '.price')
+
+# Get multiple fields
+tickisinator --price ticker:AAPL | jq '{ticker, isin, price, market_cap}'
 
 # Batch conversion
 cat tickers.txt | tickisinator | jq -r '.isin'
@@ -155,7 +172,8 @@ cat queries.txt | tickisinator
 **Caching Strategy:**
 - All lookups stored in local SQLite database (`~/.config/tickisinator/tickisinator.db`)
 - Bidirectional cache: ticker lookup also enables reverse ISIN lookup
-- No expiration (identifiers rarely change)
+- Security identifiers: No expiration (identifiers rarely change)
+- Pricing data: Automatically refreshed if >24 hours old when using `--price` flag
 - Cache persists across runs
 
 **ISIN → Ticker Lookup (Phase 0 Limitation):**
@@ -229,10 +247,11 @@ TICKISINATOR_DB_PATH=/custom/path/tickisinator.db tickisinator ticker:AAPL
 - For high-volume needs (>250/day), consider paid FMP subscription
 
 **Data Freshness:**
-- Cached data does not expire automatically
-- Corporate actions (ticker changes, mergers) may make cached data stale
-- Currently no automatic refresh mechanism
-- **Future:** Phase 2 will add cache refresh and validation
+- **Identifiers (ISIN, CUSIP, etc.):** Cached permanently (identifiers rarely change)
+- **Pricing data:** Automatically refreshed if >24 hours old when using `--price` flag
+- **Corporate actions:** Ticker changes or mergers may make identifier mappings stale
+- **Manual refresh:** Re-run ticker lookup to update cached data
+- **Future:** Phase 2 will add admin endpoints for bulk cache refresh
 
 ### Known Edge Cases
 
@@ -380,6 +399,23 @@ CREATE TABLE identifiers_isin (
 );
 
 -- Plus: identifiers_cusip, identifiers_cik
+
+-- Pricing data (separate table, refreshed when stale)
+CREATE TABLE pricing (
+  security_id INTEGER PRIMARY KEY,
+  price REAL,
+  change REAL,
+  change_percentage REAL,
+  market_cap REAL,
+  volume REAL,
+  average_volume REAL,
+  beta REAL,
+  last_dividend REAL,
+  range TEXT,
+  is_actively_trading INTEGER DEFAULT 1,
+  price_fetched_at INTEGER NOT NULL,
+  FOREIGN KEY (security_id) REFERENCES securities(id)
+);
 ```
 
 ## Roadmap
@@ -390,6 +426,8 @@ CREATE TABLE identifiers_isin (
 - ✅ ISIN → Ticker (cached only)
 - ✅ JSONL output format
 - ✅ Batch processing
+- ✅ Pricing data (optional `--price` flag)
+- ✅ Automatic price refresh (>24 hours)
 
 ### Phase 1 (HTTP API)
 - HTTP server with REST endpoints
@@ -417,5 +455,5 @@ CREATE TABLE identifiers_isin (
 
 ---
 
-**Version:** 0.2.0 (Phase 0)
+**Version:** 0.3.0 (Phase 0)
 **Last Updated:** 2025-10-25

@@ -8,7 +8,7 @@
  * Limitations: No reverse lookup (ISIN → ticker) on free tier
  */
 
-import type { SecurityData } from "../db.ts";
+import type { SecurityData, PricingData } from "../db.ts";
 
 const FMP_BASE_URL = "https://financialmodelingprep.com";
 const FMP_PROFILE_ENDPOINT = "/stable/profile";
@@ -47,7 +47,24 @@ interface FmpProfileResponse {
   industry?: string;
   exchangeFullName?: string;
   isActivelyTrading?: boolean;
-  // Many other fields available but not needed for Phase 0
+  // Pricing fields
+  price?: number;
+  changes?: number; // Note: FMP uses 'changes' not 'change'
+  changesPercentage?: number;
+  marketCap?: number;
+  volume?: number;
+  avgVolume?: number;
+  beta?: number;
+  lastDiv?: number;
+  range?: string;
+}
+
+/**
+ * Combined result with security data and optional pricing
+ */
+export interface FmpResult {
+  security: SecurityData;
+  pricing?: PricingData;
 }
 
 /**
@@ -55,14 +72,14 @@ interface FmpProfileResponse {
  *
  * @param ticker - Stock ticker symbol (e.g., "AAPL", "BRK-B")
  * @param apiKey - FMP API key
- * @returns SecurityData object with identifiers
+ * @returns FmpResult with security data and pricing
  * @throws FmpApiError if API call fails
  * @throws FmpRateLimitError if rate limit exceeded
  */
 export async function fetchTickerProfile(
   ticker: string,
   apiKey: string,
-): Promise<SecurityData> {
+): Promise<FmpResult> {
   // Validate API key
   if (!apiKey || apiKey.trim() === "") {
     throw new FmpApiError("API key is required");
@@ -162,7 +179,25 @@ export async function fetchTickerProfile(
     market_sector: profile.sector,
   };
 
-  return securityData;
+  // Extract pricing data if available
+  const pricing: PricingData | undefined = profile.price !== undefined ? {
+    price: profile.price,
+    change: profile.changes, // Note: FMP uses 'changes' not 'change'
+    change_percentage: profile.changesPercentage,
+    market_cap: profile.marketCap,
+    volume: profile.volume,
+    average_volume: profile.avgVolume,
+    beta: profile.beta,
+    last_dividend: profile.lastDiv,
+    range: profile.range,
+    is_actively_trading: profile.isActivelyTrading ?? true,
+    price_fetched_at: Math.floor(Date.now() / 1000),
+  } : undefined;
+
+  return {
+    security: securityData,
+    pricing,
+  };
 }
 
 /**

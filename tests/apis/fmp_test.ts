@@ -98,14 +98,20 @@ Deno.test("fetchTickerProfile - success with complete data (AAPL)", async () => 
   try {
     const result = await fetchTickerProfile("AAPL", "test-api-key");
 
-    assertEquals(result.ticker, "AAPL");
-    assertEquals(result.name, "Apple Inc.");
-    assertEquals(result.isin, "US0378331005");
-    assertEquals(result.cusip, "037833100");
-    assertEquals(result.cik, "0000320193");
-    assertEquals(result.exchange, "NASDAQ");
-    assertEquals(result.source, "fmp");
-    assertEquals(result.market_sector, "Technology");
+    // Check security data
+    assertEquals(result.security.ticker, "AAPL");
+    assertEquals(result.security.name, "Apple Inc.");
+    assertEquals(result.security.isin, "US0378331005");
+    assertEquals(result.security.cusip, "037833100");
+    assertEquals(result.security.cik, "0000320193");
+    assertEquals(result.security.exchange, "NASDAQ");
+    assertEquals(result.security.source, "fmp");
+    assertEquals(result.security.market_sector, "Technology");
+
+    // Check pricing data
+    assertEquals(result.pricing?.price, 262.82);
+    assertEquals(result.pricing?.market_cap, 3900351299800);
+    assertEquals(result.pricing?.is_actively_trading, true);
   } finally {
     teardownFetchMock();
   }
@@ -121,12 +127,12 @@ Deno.test("fetchTickerProfile - success with complete data (MSFT)", async () => 
   try {
     const result = await fetchTickerProfile("MSFT", "test-api-key");
 
-    assertEquals(result.ticker, "MSFT");
-    assertEquals(result.name, "Microsoft Corporation");
-    assertEquals(result.isin, "US5949181045");
-    assertEquals(result.cusip, "594918104");
-    assertEquals(result.cik, "0000789019");
-    assertEquals(result.exchange, "NASDAQ");
+    assertEquals(result.security.ticker, "MSFT");
+    assertEquals(result.security.name, "Microsoft Corporation");
+    assertEquals(result.security.isin, "US5949181045");
+    assertEquals(result.security.cusip, "594918104");
+    assertEquals(result.security.cik, "0000789019");
+    assertEquals(result.security.exchange, "NASDAQ");
   } finally {
     teardownFetchMock();
   }
@@ -140,12 +146,12 @@ Deno.test("fetchTickerProfile - partial data (missing ISIN/CUSIP)", async () => 
   try {
     const result = await fetchTickerProfile("TEST", "test-api-key");
 
-    assertEquals(result.ticker, "TEST");
-    assertEquals(result.name, "Test Company");
-    assertEquals(result.exchange, "NYSE");
-    assertEquals(result.isin, undefined);
-    assertEquals(result.cusip, undefined);
-    assertEquals(result.cik, undefined);
+    assertEquals(result.security.ticker, "TEST");
+    assertEquals(result.security.name, "Test Company");
+    assertEquals(result.security.exchange, "NYSE");
+    assertEquals(result.security.isin, undefined);
+    assertEquals(result.security.cusip, undefined);
+    assertEquals(result.security.cik, undefined);
   } finally {
     teardownFetchMock();
   }
@@ -171,8 +177,8 @@ Deno.test("fetchTickerProfile - handles ticker with hyphen (BRK-B)", async () =>
 
   try {
     const result = await fetchTickerProfile("BRK-B", "test-api-key");
-    assertEquals(result.ticker, "BRK-B");
-    assertEquals(result.isin, "US0846707026");
+    assertEquals(result.security.ticker, "BRK-B");
+    assertEquals(result.security.isin, "US0846707026");
   } finally {
     teardownFetchMock();
   }

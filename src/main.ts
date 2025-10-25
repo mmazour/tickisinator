@@ -18,8 +18,12 @@ import {
   lookupByTicker,
   lookupByIsin,
   lookupByCusip,
+  insertPricing,
+  getPricing,
+  isPricingStale,
   type Database,
   type SecurityResult,
+  type PricingData,
 } from "./db.ts";
 import { fetchTickerProfile, getFmpApiKey, FmpApiError, FmpRateLimitError } from "./apis/fmp.ts";
 import { cusipToIsin } from "./isin.ts";
@@ -37,6 +41,18 @@ interface OutputRecord {
   exchange?: string;
   source: "db" | "fmp" | "computed";
   error?: string;
+  // Pricing data (only included when --price flag is used)
+  price?: number;
+  change?: number;
+  change_percentage?: number;
+  market_cap?: number;
+  volume?: number;
+  average_volume?: number;
+  beta?: number;
+  last_dividend?: number;
+  range?: string;
+  is_actively_trading?: boolean;
+  price_fetched_at?: number;
 }
 
 /**
@@ -46,6 +62,7 @@ interface CliConfig {
   dbPath: string;
   apiKey: string;
   verbose: boolean;
+  priceRequested: boolean;
 }
 
 /**
@@ -59,7 +76,7 @@ function getConfig(): CliConfig {
 
   const verbose = Deno.env.get("TICKISINATOR_VERBOSE") === "1";
 
-  return { dbPath, apiKey, verbose };
+  return { dbPath, apiKey, verbose, priceRequested: false };
 }
 
 /**
@@ -104,7 +121,8 @@ async function processDesignator(
     // If found in database, return cached result
     if (security) {
       log(config, `Cache hit for ${designator.type}:${designator.value}`);
-      return {
+
+      const output: OutputRecord = {
         input,
         ticker: security.ticker,
         isin: security.isin,
@@ -114,6 +132,44 @@ async function processDesignator(
         exchange: security.exchange,
         source: "db",
       };
+
+      // If pricing is requested, include it (refresh if stale)
+      if (config.priceRequested) {
+        let pricing = getPricing(db, security.id);
+
+        // Refresh if stale and we have API key
+        if (isPricingStale(pricing) && config.apiKey && security.ticker) {
+          log(config, `Pricing data stale, refreshing from API`);
+          try {
+            const { pricing: freshPricing } = await fetchTickerProfile(security.ticker, config.apiKey);
+            if (freshPricing) {
+              insertPricing(db, security.id, freshPricing);
+              pricing = freshPricing;
+              log(config, `Updated pricing data for ${security.ticker}`);
+            }
+          } catch (error) {
+            log(config, `Failed to refresh pricing: ${error}`);
+            // Continue with stale/no pricing
+          }
+        }
+
+        // Include pricing in output if available
+        if (pricing) {
+          output.price = pricing.price;
+          output.change = pricing.change;
+          output.change_percentage = pricing.change_percentage;
+          output.market_cap = pricing.market_cap;
+          output.volume = pricing.volume;
+          output.average_volume = pricing.average_volume;
+          output.beta = pricing.beta;
+          output.last_dividend = pricing.last_dividend;
+          output.range = pricing.range;
+          output.is_actively_trading = pricing.is_actively_trading;
+          output.price_fetched_at = pricing.price_fetched_at;
+        }
+      }
+
+      return output;
     }
 
     // Cache miss - handle based on designator type
@@ -131,14 +187,20 @@ async function processDesignator(
         }
 
         try {
-          const profile = await fetchTickerProfile(designator.value, config.apiKey);
+          const { security: profile, pricing } = await fetchTickerProfile(designator.value, config.apiKey);
           log(config, `Fetched ${designator.value} from FMP API`);
 
-          // Cache in database
-          insertSecurity(db, profile);
+          // Cache security data in database
+          const securityId = insertSecurity(db, profile);
           log(config, `Cached ${designator.value} in database`);
 
-          return {
+          // Cache pricing data if present
+          if (pricing) {
+            insertPricing(db, securityId, pricing);
+            log(config, `Cached pricing data for ${designator.value}`);
+          }
+
+          const output: OutputRecord = {
             input,
             ticker: profile.ticker,
             isin: profile.isin,
@@ -148,6 +210,23 @@ async function processDesignator(
             exchange: profile.exchange,
             source: "fmp",
           };
+
+          // Include pricing if requested
+          if (config.priceRequested && pricing) {
+            output.price = pricing.price;
+            output.change = pricing.change;
+            output.change_percentage = pricing.change_percentage;
+            output.market_cap = pricing.market_cap;
+            output.volume = pricing.volume;
+            output.average_volume = pricing.average_volume;
+            output.beta = pricing.beta;
+            output.last_dividend = pricing.last_dividend;
+            output.range = pricing.range;
+            output.is_actively_trading = pricing.is_actively_trading;
+            output.price_fetched_at = pricing.price_fetched_at;
+          }
+
+          return output;
         } catch (error) {
           if (error instanceof FmpRateLimitError) {
             return {
@@ -254,12 +333,13 @@ async function processDesignator(
 async function main() {
   // Parse command-line arguments
   const args = parseArgs(Deno.args, {
-    boolean: ["help", "version", "verbose"],
+    boolean: ["help", "version", "verbose", "price"],
     string: ["db"],
     alias: {
       h: "help",
       v: "version",
       V: "verbose",
+      p: "price",
     },
   });
 
@@ -281,6 +361,7 @@ Options:
   -h, --help        Show this help message
   -v, --version     Show version
   -V, --verbose     Verbose output (logs to stderr)
+  -p, --price       Include pricing data (price, market cap, volume, etc.)
   --db <path>       Database path (default: ~/.config/tickisinator/tickisinator.db)
 
 Environment Variables:
@@ -297,6 +378,9 @@ Examples:
 
   # Look up multiple tickers
   tickisinator ticker:AAPL ticker:MSFT ticker:TSLA
+
+  # Look up with pricing data
+  tickisinator --price ticker:AAPL
 
   # Look up from file
   cat tickers.txt | tickisinator
@@ -315,7 +399,7 @@ Exit Codes:
 
   // Show version
   if (args.version) {
-    console.log("tickisinator v0.2.0");
+    console.log("tickisinator v0.3.0");
     Deno.exit(0);
   }
 
@@ -330,6 +414,11 @@ Exit Codes:
   // Override verbose if specified
   if (args.verbose) {
     config.verbose = true;
+  }
+
+  // Set priceRequested if specified
+  if (args.price) {
+    config.priceRequested = true;
   }
 
   // Ensure database directory exists
