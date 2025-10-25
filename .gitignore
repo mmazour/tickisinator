@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+
+# Claude Code
+.claude/
+
+# Data
+data/
+*.db
+*.db-journal
+
+# Deno
+.deno/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+
+# Node modules (if using npm packages via Deno)
+node_modules/
+
+# Test coverage
+coverage/
+
+# Logs
+*.log
