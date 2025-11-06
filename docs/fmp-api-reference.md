@@ -320,6 +320,103 @@ For users who need Form 8938 analysis:
 
 ---
 
+### 6. Historical Price Data & Chart APIs
+
+**Purpose:** Track investment performance over time with historical price data, volume, and various chart intervals.
+
+**Available Endpoints:**
+
+#### End-of-Day (EOD) Price Data
+
+| Endpoint | URL | Returns | Use Case |
+|----------|-----|---------|----------|
+| **Light Chart** | `/stable/historical-price-eod/light?symbol={TICKER}` | Date, price, volume | Basic charting with minimal data |
+| **Full Chart** | `/stable/historical-price-eod/full?symbol={TICKER}` | OHLC, volume, changes, VWAP | Comprehensive price analysis |
+| **Unadjusted** | `/stable/historical-price-eod/non-split-adjusted?symbol={TICKER}` | Raw prices (no split adjustments) | Historical accuracy |
+| **Dividend Adjusted** | `/stable/historical-price-eod/dividend-adjusted?symbol={TICKER}` | Prices adjusted for dividends | Total return calculations |
+
+**Example:**
+```
+https://financialmodelingprep.com/stable/historical-price-eod/full?symbol=AAPL&apikey=YOUR_API_KEY
+```
+
+#### Intraday Price Charts
+
+| Interval | Endpoint | Use Case |
+|----------|----------|----------|
+| **1-Minute** | `/historical-chart/1min?symbol={TICKER}` | Real-time precision tracking |
+| **5-Minute** | `/historical-chart/5min?symbol={TICKER}` | Short-term trading analysis |
+| **15-Minute** | `/historical-chart/15min?symbol={TICKER}` | Medium intraday trends |
+| **30-Minute** | `/historical-chart/30min?symbol={TICKER}` | Broader intraday movements |
+| **1-Hour** | `/historical-chart/1hour?symbol={TICKER}` | Extended hourly analysis |
+| **4-Hour** | `/historical-chart/4hour?symbol={TICKER}` | Longer intraday periods |
+
+**All intraday endpoints return:** Open, high, low, close prices, and trading volume
+
+**Potential Use Cases:**
+- Track investment performance over custom time periods
+- Calculate returns (daily, monthly, yearly)
+- Generate price charts and candlestick visualizations
+- Analyze volatility and trading patterns
+- Compare performance across securities
+- Support portfolio performance reporting
+
+**Priority:** High (essential for investment tracking and performance analysis)
+
+**Note:** Free tier availability not explicitly documented - should test these endpoints.
+
+---
+
+### 7. Market Performance & Analysis APIs
+
+**Purpose:** Analyze market trends, sector/industry performance, and identify top movers.
+
+**Available Endpoints:**
+
+#### Sector & Industry Performance
+
+| Endpoint | URL | Returns | Parameters |
+|----------|-----|---------|------------|
+| **Sector Performance Snapshot** | `/stable/sector-performance-snapshot?date={DATE}` | Average changes by sector | date |
+| **Industry Performance Snapshot** | `/stable/industry-performance-snapshot?date={DATE}` | Daily metrics by industry | date |
+| **Historical Sector Performance** | `/stable/historical-sector-performance?sector={SECTOR}` | Long-term sector trends | sector |
+| **Historical Industry Performance** | `/stable/historical-industry-performance?industry={INDUSTRY}` | Long-term industry trends | industry |
+
+#### Valuation Metrics (P/E Ratios)
+
+| Endpoint | URL | Returns | Parameters |
+|----------|-----|---------|------------|
+| **Sector P/E Snapshot** | `/stable/sector-pe-snapshot?date={DATE}` | P/E ratios by sector | date |
+| **Industry P/E Snapshot** | `/stable/industry-pe-snapshot?date={DATE}` | P/E ratios by industry | date |
+| **Historical Sector P/E** | `/stable/historical-sector-pe?sector={SECTOR}` | Historical sector valuations | sector |
+| **Historical Industry P/E** | `/stable/historical-industry-pe?industry={INDUSTRY}` | Historical industry valuations | industry |
+
+#### Market Movers (US Securities)
+
+| Endpoint | URL | Returns |
+|----------|-----|---------|
+| **Biggest Gainers** | `/stable/biggest-gainers` | Stocks with largest price increases |
+| **Biggest Losers** | `/stable/biggest-losers` | Stocks with largest price drops |
+| **Most Active** | `/stable/most-actives` | Most actively traded stocks by volume |
+
+**Coverage:**
+- Sector/Industry APIs: Global coverage
+- Market Movers APIs: US securities only
+
+**Potential Use Cases:**
+- Portfolio performance attribution (sector/industry exposure)
+- Benchmark comparisons (how did my holdings perform vs. sector average?)
+- Identify overvalued/undervalued sectors using historical P/E trends
+- Discover investment opportunities (biggest gainers/losers)
+- Market sentiment analysis (most active stocks)
+- Diversification analysis (sector/industry breakdown)
+
+**Priority:** Medium (useful for portfolio analysis and market research)
+
+**Note:** These APIs would complement historical price data to provide comprehensive performance analysis capabilities.
+
+---
+
 ## Implementation Notes
 
 ### Current Integration
@@ -351,6 +448,9 @@ https://financialmodelingprep.com/stable/profile?symbol=AAPL&apikey=YOUR_API_KEY
 1. **CUSIP/ISIN Direct Lookup:** Test if these endpoints work on free tier, implement if available
 2. **Name Search:** Could enable more user-friendly query interface
 3. **Dedicated Pricing Endpoint:** Consider if we need to separate pricing from identifier lookups
+4. **Historical Price Data:** Implement EOD price tracking for performance calculations and return analysis
+5. **Performance Analysis:** Add sector/industry performance comparison and portfolio attribution features
+6. **Market Movers:** Integrate biggest gainers/losers APIs for investment discovery
 
 ---
 
