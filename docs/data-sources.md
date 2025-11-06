@@ -223,6 +223,40 @@ GET /v3/search/isin?isin={isin}
 - **Needs verification:** Test if CUSIP/ISIN endpoints work on free tier
 - **Good candidate** if free tier includes identifier endpoints
 
+### Additional FMP APIs Available
+
+FMP provides several other APIs that may be useful for future enhancements:
+
+#### 1. Company Name Search API
+**Endpoint:** `https://financialmodelingprep.com/stable/search-name?query=apple&apikey=YOUR_API_KEY`
+
+**Purpose:** Search for companies by name to find their stock symbol. Returns matching companies across global exchanges.
+
+**Use case:** Could enable fuzzy search like "Find ticker for Apple" without knowing exact ticker symbol.
+
+#### 2. Stock Quotes API
+**Endpoint:** `https://financialmodelingprep.com/stable/quote?symbol=AAPL&apikey=YOUR_API_KEY`
+
+**Purpose:** Real-time stock prices, volume, and price changes.
+
+**Use case:** Already integrated via Company Profile API (which includes current pricing). This dedicated endpoint could be used for more frequent price updates if needed.
+
+#### 3. Company Profile Data API
+**Endpoint:** `https://financialmodelingprep.com/stable/profile?symbol=AAPL&apikey=YOUR_API_KEY`
+
+**Purpose:** Detailed company information including market cap, sector, CEO, stock price, ISIN, CUSIP.
+
+**Status:** ✅ **Currently in use** - This is our primary endpoint for ticker → ISIN/CUSIP lookups with optional pricing data.
+
+#### 4. Income Statement API
+**Endpoint:** `https://financialmodelingprep.com/stable/income-statement?symbol=AAPL&apikey=YOUR_API_KEY`
+
+**Purpose:** Financial statements including revenue, net income, and cost trends over time.
+
+**Use case:** Could enable fundamental analysis features (P/E ratios, company performance metrics) if we expand beyond identifier translation.
+
+**Note:** All endpoints can be tested directly in a browser by adding your API key. These are documented here for future reference, though we currently only use the Company Profile endpoint.
+
 ---
 
 ## Finnhub
