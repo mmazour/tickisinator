@@ -53,18 +53,24 @@ cat tickers.txt | tickisinator
 All output is JSONL (JSON Lines) - one JSON object per line:
 
 ```json
-{"input":"ticker:AAPL","ticker":"AAPL","isin":"US0378331005","cusip":"037833100","cik":"0000320193","name":"Apple Inc.","exchange":"NASDAQ","source":"fmp"}
-{"input":"ticker:MSFT","ticker":"MSFT","isin":"US5949181045","cusip":"594918104","cik":"0000789019","name":"Microsoft Corporation","exchange":"NASDAQ","source":"fmp"}
+{"input":"ticker:AAPL","ticker":"AAPL","isin":"US0378331005","cusip":"037833100","cik":"0000320193","name":"Apple Inc.","exchange":"NASDAQ","country":"US","is_etf":false,"is_fund":false,"is_adr":false,"currency":"USD","industry":"Consumer Electronics","source":"fmp"}
+{"input":"ticker:MSFT","ticker":"MSFT","isin":"US5949181045","cusip":"594918104","cik":"0000789019","name":"Microsoft Corporation","exchange":"NASDAQ","country":"US","is_etf":false,"is_fund":false,"is_adr":false,"currency":"USD","source":"fmp"}
+```
+
+Asset classification examples:
+```json
+{"input":"ticker:SPY","ticker":"SPY","isin":"US78462F1030","cusip":"78462F103","name":"SPDR S&P 500 ETF Trust","exchange":"ARCA","country":"US","is_etf":true,"is_fund":false,"is_adr":false,"currency":"USD","source":"fmp"}
+{"input":"ticker:BABA","ticker":"BABA","isin":"US01609W1027","cusip":"01609W102","name":"Alibaba Group Holding Limited","exchange":"NYSE","country":"CN","is_etf":false,"is_fund":false,"is_adr":true,"currency":"USD","source":"fmp"}
 ```
 
 With pricing data (`--price` flag):
 ```json
-{"input":"ticker:AAPL","ticker":"AAPL","isin":"US0378331005","cusip":"037833100","cik":"0000320193","name":"Apple Inc.","exchange":"NASDAQ","source":"fmp","price":262.82,"change":5.23,"change_percentage":2.03,"market_cap":3900351299800,"volume":45678900,"average_volume":52345678,"beta":1.25,"last_dividend":0.96,"range":"245.32-278.45","is_actively_trading":true,"price_fetched_at":1730000000}
+{"input":"ticker:AAPL","ticker":"AAPL","isin":"US0378331005","cusip":"037833100","cik":"0000320193","name":"Apple Inc.","exchange":"NASDAQ","country":"US","is_etf":false,"is_fund":false,"is_adr":false,"currency":"USD","industry":"Consumer Electronics","source":"fmp","price":262.82,"change":5.23,"change_percentage":2.03,"market_cap":3900351299800,"volume":45678900,"average_volume":52345678,"beta":1.25,"last_dividend":0.96,"range":"245.32-278.45","is_actively_trading":true,"price_fetched_at":1730000000}
 ```
 
 For cached lookups:
 ```json
-{"input":"isin:US0378331005","ticker":"AAPL","isin":"US0378331005","cusip":"037833100","cik":"0000320193","name":"Apple Inc.","exchange":"NASDAQ","source":"db"}
+{"input":"isin:US0378331005","ticker":"AAPL","isin":"US0378331005","cusip":"037833100","cik":"0000320193","name":"Apple Inc.","exchange":"NASDAQ","country":"US","is_etf":false,"is_fund":false,"is_adr":false,"currency":"USD","industry":"Consumer Electronics","source":"db"}
 ```
 
 When ISIN not in cache:
@@ -375,6 +381,12 @@ CREATE TABLE securities (
   name TEXT,
   security_type TEXT,
   market_sector TEXT,
+  country TEXT,
+  is_etf INTEGER DEFAULT 0,
+  is_fund INTEGER DEFAULT 0,
+  is_adr INTEGER DEFAULT 0,
+  currency TEXT,
+  industry TEXT,
   created_at INTEGER,
   updated_at INTEGER
 );

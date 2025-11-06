@@ -23,6 +23,12 @@ export interface SecurityData {
   source: string;
   security_type?: string;
   market_sector?: string;
+  country?: string;
+  is_etf?: boolean;
+  is_fund?: boolean;
+  is_adr?: boolean;
+  currency?: string;
+  industry?: string;
 }
 
 export interface SecurityResult extends SecurityData {
@@ -68,6 +74,12 @@ export function initDatabase(dbPath: string): Database {
       name TEXT,
       security_type TEXT,
       market_sector TEXT,
+      country TEXT,
+      is_etf INTEGER DEFAULT 0,
+      is_fund INTEGER DEFAULT 0,
+      is_adr INTEGER DEFAULT 0,
+      currency TEXT,
+      industry TEXT,
       created_at INTEGER DEFAULT (unixepoch()),
       updated_at INTEGER DEFAULT (unixepoch())
     )
@@ -145,6 +157,29 @@ export function initDatabase(dbPath: string): Database {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_cik ON identifiers_cik(cik)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_pricing_security ON pricing(security_id)`);
 
+  // Migration: Add classification fields if they don't exist (for existing databases)
+  const columns = db.prepare("PRAGMA table_info(securities)").all() as Array<{ name: string }>;
+  const columnNames = columns.map(c => c.name);
+
+  if (!columnNames.includes("country")) {
+    db.exec(`ALTER TABLE securities ADD COLUMN country TEXT`);
+  }
+  if (!columnNames.includes("is_etf")) {
+    db.exec(`ALTER TABLE securities ADD COLUMN is_etf INTEGER DEFAULT 0`);
+  }
+  if (!columnNames.includes("is_fund")) {
+    db.exec(`ALTER TABLE securities ADD COLUMN is_fund INTEGER DEFAULT 0`);
+  }
+  if (!columnNames.includes("is_adr")) {
+    db.exec(`ALTER TABLE securities ADD COLUMN is_adr INTEGER DEFAULT 0`);
+  }
+  if (!columnNames.includes("currency")) {
+    db.exec(`ALTER TABLE securities ADD COLUMN currency TEXT`);
+  }
+  if (!columnNames.includes("industry")) {
+    db.exec(`ALTER TABLE securities ADD COLUMN industry TEXT`);
+  }
+
   return db;
 }
 
@@ -200,12 +235,18 @@ export function insertSecurity(db: Database, security: SecurityData): number {
   // Create new security if not found
   if (!securityId) {
     db.prepare(`
-      INSERT INTO securities (name, security_type, market_sector, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO securities (name, security_type, market_sector, country, is_etf, is_fund, is_adr, currency, industry, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       security.name,
       security.security_type || null,
       security.market_sector || null,
+      security.country || null,
+      security.is_etf ? 1 : 0,
+      security.is_fund ? 1 : 0,
+      security.is_adr ? 1 : 0,
+      security.currency || null,
+      security.industry || null,
       timestamp,
       timestamp
     );
@@ -215,12 +256,18 @@ export function insertSecurity(db: Database, security: SecurityData): number {
     // Update existing security
     db.prepare(`
       UPDATE securities
-      SET name = ?, security_type = ?, market_sector = ?, updated_at = ?
+      SET name = ?, security_type = ?, market_sector = ?, country = ?, is_etf = ?, is_fund = ?, is_adr = ?, currency = ?, industry = ?, updated_at = ?
       WHERE id = ?
     `).run(
       security.name,
       security.security_type || null,
       security.market_sector || null,
+      security.country || null,
+      security.is_etf ? 1 : 0,
+      security.is_fund ? 1 : 0,
+      security.is_adr ? 1 : 0,
+      security.currency || null,
+      security.industry || null,
       timestamp,
       securityId
     );
@@ -296,6 +343,12 @@ export function lookupByTicker(
       s.name,
       s.security_type,
       s.market_sector,
+      s.country,
+      s.is_etf,
+      s.is_fund,
+      s.is_adr,
+      s.currency,
+      s.industry,
       t.ticker,
       t.exchange,
       t.fetched_at,
@@ -315,6 +368,12 @@ export function lookupByTicker(
       s.name,
       s.security_type,
       s.market_sector,
+      s.country,
+      s.is_etf,
+      s.is_fund,
+      s.is_adr,
+      s.currency,
+      s.industry,
       t.ticker,
       t.exchange,
       t.fetched_at,
@@ -348,6 +407,12 @@ export function lookupByTicker(
     cik: result.cik || null,
     security_type: result.security_type || null,
     market_sector: result.market_sector || null,
+    country: result.country || null,
+    is_etf: result.is_etf === 1,
+    is_fund: result.is_fund === 1,
+    is_adr: result.is_adr === 1,
+    currency: result.currency || null,
+    industry: result.industry || null,
     source: "db",
     fetched_at: result.fetched_at,
   };
@@ -367,6 +432,12 @@ export function lookupByIsin(db: Database, isin: string): SecurityResult | null 
       s.name,
       s.security_type,
       s.market_sector,
+      s.country,
+      s.is_etf,
+      s.is_fund,
+      s.is_adr,
+      s.currency,
+      s.industry,
       i.isin,
       i.fetched_at,
       t.ticker,
@@ -395,6 +466,12 @@ export function lookupByIsin(db: Database, isin: string): SecurityResult | null 
     cik: result.cik || null,
     security_type: result.security_type || null,
     market_sector: result.market_sector || null,
+    country: result.country || null,
+    is_etf: result.is_etf === 1,
+    is_fund: result.is_fund === 1,
+    is_adr: result.is_adr === 1,
+    currency: result.currency || null,
+    industry: result.industry || null,
     source: "db",
     fetched_at: result.fetched_at,
   };
@@ -414,6 +491,12 @@ export function lookupByCusip(db: Database, cusip: string): SecurityResult | nul
       s.name,
       s.security_type,
       s.market_sector,
+      s.country,
+      s.is_etf,
+      s.is_fund,
+      s.is_adr,
+      s.currency,
+      s.industry,
       c.cusip,
       c.fetched_at,
       t.ticker,
@@ -442,6 +525,12 @@ export function lookupByCusip(db: Database, cusip: string): SecurityResult | nul
     cik: result.cik || null,
     security_type: result.security_type || null,
     market_sector: result.market_sector || null,
+    country: result.country || null,
+    is_etf: result.is_etf === 1,
+    is_fund: result.is_fund === 1,
+    is_adr: result.is_adr === 1,
+    currency: result.currency || null,
+    industry: result.industry || null,
     source: "db",
     fetched_at: result.fetched_at,
   };

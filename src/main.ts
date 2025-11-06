@@ -41,6 +41,13 @@ interface OutputRecord {
   exchange?: string;
   source: "db" | "fmp" | "computed";
   error?: string;
+  // Classification fields
+  country?: string;
+  is_etf?: boolean;
+  is_fund?: boolean;
+  is_adr?: boolean;
+  currency?: string;
+  industry?: string;
   // Pricing data (only included when --price flag is used)
   price?: number;
   change?: number;
@@ -130,6 +137,12 @@ async function processDesignator(
         cik: security.cik,
         name: security.name,
         exchange: security.exchange,
+        country: security.country,
+        is_etf: security.is_etf,
+        is_fund: security.is_fund,
+        is_adr: security.is_adr,
+        currency: security.currency,
+        industry: security.industry,
         source: "db",
       };
 
@@ -208,6 +221,12 @@ async function processDesignator(
             cik: profile.cik,
             name: profile.name,
             exchange: profile.exchange,
+            country: profile.country,
+            is_etf: profile.is_etf,
+            is_fund: profile.is_fund,
+            is_adr: profile.is_adr,
+            currency: profile.currency,
+            industry: profile.industry,
             source: "fmp",
           };
 

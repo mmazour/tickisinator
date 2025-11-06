@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Asset classification fields: `country`, `is_etf`, `is_fund`, `is_adr`, `currency`, `industry`
+- Ability to distinguish between stocks, ETFs, mutual funds, and ADRs
+- Form 8938 reporting support via `country` and `is_adr` fields
+- Extended database schema with classification columns in `securities` table
+- Comprehensive classification field tests covering stocks, ETFs, funds, and ADRs
+
+### Changed
+- All output now includes asset classification fields
+- FMP API client captures additional classification data from API responses
+- Database queries return classification fields for all lookups
+
 ## [0.3.0] - 2025-10-25
 
 ### Added

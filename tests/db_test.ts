@@ -500,3 +500,115 @@ Deno.test("ISIN lookup with stale pricing - can refresh using cached ticker", ()
 
   db.close();
 });
+
+Deno.test("insertSecurity - stores and retrieves classification fields", () => {
+  const db = initDatabase(TEST_DB_PATH);
+
+  // Test regular US stock
+  const appleStock: SecurityData = {
+    name: "Apple Inc.",
+    ticker: "AAPL",
+    exchange: "NASDAQ",
+    isin: "US0378331005",
+    cusip: "037833100",
+    source: "fmp",
+    country: "US",
+    is_etf: false,
+    is_fund: false,
+    is_adr: false,
+    currency: "USD",
+    industry: "Consumer Electronics",
+    market_sector: "Technology",
+  };
+
+  const appleId = insertSecurity(db, appleStock);
+  const appleResult = lookupByTicker(db, "AAPL", "NASDAQ");
+
+  assertExists(appleResult);
+  assertEquals(appleResult!.country, "US");
+  assertEquals(appleResult!.is_etf, false);
+  assertEquals(appleResult!.is_fund, false);
+  assertEquals(appleResult!.is_adr, false);
+  assertEquals(appleResult!.currency, "USD");
+  assertEquals(appleResult!.industry, "Consumer Electronics");
+
+  // Test ETF
+  const spyEtf: SecurityData = {
+    name: "SPDR S&P 500 ETF Trust",
+    ticker: "SPY",
+    exchange: "ARCA",
+    isin: "US78462F1030",
+    cusip: "78462F103",
+    source: "fmp",
+    country: "US",
+    is_etf: true,
+    is_fund: false,
+    is_adr: false,
+    currency: "USD",
+  };
+
+  insertSecurity(db, spyEtf);
+  const spyResult = lookupByTicker(db, "SPY", "ARCA");
+
+  assertExists(spyResult);
+  assertEquals(spyResult!.is_etf, true);
+  assertEquals(spyResult!.is_fund, false);
+  assertEquals(spyResult!.is_adr, false);
+  assertEquals(spyResult!.country, "US");
+
+  // Test ADR
+  const babaAdr: SecurityData = {
+    name: "Alibaba Group Holding Limited",
+    ticker: "BABA",
+    exchange: "NYSE",
+    isin: "US01609W1027",
+    cusip: "01609W102",
+    source: "fmp",
+    country: "CN",
+    is_etf: false,
+    is_fund: false,
+    is_adr: true,
+    currency: "USD",
+  };
+
+  insertSecurity(db, babaAdr);
+  const babaResult = lookupByIsin(db, "US01609W1027");
+
+  assertExists(babaResult);
+  assertEquals(babaResult!.is_adr, true);
+  assertEquals(babaResult!.is_etf, false);
+  assertEquals(babaResult!.is_fund, false);
+  assertEquals(babaResult!.country, "CN");
+
+  // Test mutual fund
+  const vtsaxFund: SecurityData = {
+    name: "Vanguard Total Stock Market Index Fund",
+    ticker: "VTSAX",
+    exchange: "MUTF",
+    source: "fmp",
+    country: "US",
+    is_etf: false,
+    is_fund: true,
+    is_adr: false,
+    currency: "USD",
+  };
+
+  insertSecurity(db, vtsaxFund);
+  const vtsaxResult = lookupByTicker(db, "VTSAX", "MUTF");
+
+  assertExists(vtsaxResult);
+  assertEquals(vtsaxResult!.is_fund, true);
+  assertEquals(vtsaxResult!.is_etf, false);
+  assertEquals(vtsaxResult!.is_adr, false);
+  assertEquals(vtsaxResult!.country, "US");
+
+  // Test lookup by CUSIP preserves classification fields
+  const cusipResult = lookupByCusip(db, "037833100");
+  assertExists(cusipResult);
+  assertEquals(cusipResult!.country, "US");
+  assertEquals(cusipResult!.is_etf, false);
+  assertEquals(cusipResult!.is_adr, false);
+  assertEquals(cusipResult!.industry, "Consumer Electronics");
+
+  db.close();
+});

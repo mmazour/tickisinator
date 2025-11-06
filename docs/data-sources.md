@@ -172,90 +172,18 @@ We would need additional data sources or a multi-step approach to get complete i
 
 **URL:** https://site.financialmodelingprep.com
 
-**Overview:** Comprehensive financial data API with ISIN and CUSIP endpoints.
+**Status:** ✅ **Primary data source for Tickisinator**
 
-### What It Accepts (Input):
-- Ticker symbol
-- CUSIP (via dedicated endpoint)
-- ISIN (via dedicated endpoint)
+**Overview:** Comprehensive financial data API providing investment identifiers (ISIN, CUSIP, ticker) and market pricing data. Currently using the Company Profile API on the free tier (250 requests/day).
 
-### What It Returns (Output):
-Company profile responses include:
-- `isin`: "US0378331005"
-- `cusip`: "037833100"
-- `ticker`: "AAPL"
-- `name`: "Apple Inc."
-- Plus extensive financial data
+**For detailed API documentation, see:** [`fmp-api-reference.md`](./fmp-api-reference.md)
 
-### Example Endpoints:
-```
-GET /v3/profile/{ticker}
-GET /v3/cusip/{cusip}
-GET /v3/search/isin?isin={isin}
-```
-
-### Pricing (2024):
-- **Free tier:** 250 API requests/day ($0)
-  - Limited to 5 years historical data
-  - 5 quarters of financial statements
-  - 500MB bandwidth/month
-- **Starter:** $29/month
-- **Professional:** Higher tiers available
-
-### Free Tier Limitations:
-- 250 requests per day (decent for testing)
-- Limited historical data
-- Bandwidth cap
-
-### Strengths:
-- ✅ **Bidirectional lookup**: Both Ticker → ISIN and ISIN → Ticker
-- ✅ Dedicated CUSIP and ISIN endpoints
-- ✅ Reasonable free tier (250 requests/day)
-- ✅ Comprehensive financial data beyond identifiers
-
-### Weaknesses:
-- ❌ Documentation unclear about which endpoints are available on free tier
-- ❌ May require paid tier for ISIN/CUSIP endpoints (unclear)
-- ❌ Bandwidth limits could be restrictive
-
-### Use Case for Ticksinator:
-- **Best for:** Bidirectional ISIN ↔ Ticker translation
-- **Needs verification:** Test if CUSIP/ISIN endpoints work on free tier
-- **Good candidate** if free tier includes identifier endpoints
-
-### Additional FMP APIs Available
-
-FMP provides several other APIs that may be useful for future enhancements:
-
-#### 1. Company Name Search API
-**Endpoint:** `https://financialmodelingprep.com/stable/search-name?query=apple&apikey=YOUR_API_KEY`
-
-**Purpose:** Search for companies by name to find their stock symbol. Returns matching companies across global exchanges.
-
-**Use case:** Could enable fuzzy search like "Find ticker for Apple" without knowing exact ticker symbol.
-
-#### 2. Stock Quotes API
-**Endpoint:** `https://financialmodelingprep.com/stable/quote?symbol=AAPL&apikey=YOUR_API_KEY`
-
-**Purpose:** Real-time stock prices, volume, and price changes.
-
-**Use case:** Already integrated via Company Profile API (which includes current pricing). This dedicated endpoint could be used for more frequent price updates if needed.
-
-#### 3. Company Profile Data API
-**Endpoint:** `https://financialmodelingprep.com/stable/profile?symbol=AAPL&apikey=YOUR_API_KEY`
-
-**Purpose:** Detailed company information including market cap, sector, CEO, stock price, ISIN, CUSIP.
-
-**Status:** ✅ **Currently in use** - This is our primary endpoint for ticker → ISIN/CUSIP lookups with optional pricing data.
-
-#### 4. Income Statement API
-**Endpoint:** `https://financialmodelingprep.com/stable/income-statement?symbol=AAPL&apikey=YOUR_API_KEY`
-
-**Purpose:** Financial statements including revenue, net income, and cost trends over time.
-
-**Use case:** Could enable fundamental analysis features (P/E ratios, company performance metrics) if we expand beyond identifier translation.
-
-**Note:** All endpoints can be tested directly in a browser by adding your API key. These are documented here for future reference, though we currently only use the Company Profile endpoint.
+### Quick Summary:
+- **Free tier:** 250 API requests/day
+- **Currently using:** Company Profile Data API
+- **Provides:** Ticker → ISIN/CUSIP translation + optional pricing data
+- **Additional APIs available:** Name search, CUSIP/ISIN reverse lookup, income statements
+- **Works well with:** SQLite caching to minimize API calls
 
 ---
 

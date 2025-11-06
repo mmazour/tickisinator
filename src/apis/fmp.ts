@@ -47,6 +47,12 @@ interface FmpProfileResponse {
   industry?: string;
   exchangeFullName?: string;
   isActivelyTrading?: boolean;
+  // Classification fields
+  country?: string;
+  isEtf?: boolean;
+  isFund?: boolean;
+  isAdr?: boolean;
+  currency?: string;
   // Pricing fields
   price?: number;
   changes?: number; // Note: FMP uses 'changes' not 'change'
@@ -177,6 +183,12 @@ export async function fetchTickerProfile(
     cusip: profile.cusip,
     cik: profile.cik,
     market_sector: profile.sector,
+    country: profile.country,
+    is_etf: profile.isEtf,
+    is_fund: profile.isFund,
+    is_adr: profile.isAdr,
+    currency: profile.currency,
+    industry: profile.industry,
   };
 
   // Extract pricing data if available
